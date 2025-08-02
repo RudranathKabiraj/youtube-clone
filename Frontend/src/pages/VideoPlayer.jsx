@@ -280,13 +280,13 @@ function VideoPlayer() {
         <div className="flex-1">
           {/* Video player */}
           <div className="relative w-full aspect-video mb-4 overflow-hidden rounded-xl bg-black">
-            <iframe
-              src={`https://www.youtube.com/embed/${video.videoLink}?autoplay=1&rel=0&mute=0&playsinline=1`}
-              className="w-full h-full"
-              title={video.title}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
+       <iframe
+  src={`https://www.youtube.com/embed/${video.videoLink}?autoplay=1&rel=0&mute=0&playsinline=1`}
+  className="w-full h-full"
+  title={video.title}
+  allow="autoplay; encrypted-media"
+  allowFullScreen
+/>
           </div>
           {/* Video title */}
           <h1 className="text-lg sm:text-xl font-semibold text-black dark:text-white mb-3">
