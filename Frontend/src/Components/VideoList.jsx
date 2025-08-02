@@ -5,7 +5,7 @@ import { useOutletContext, useLocation } from 'react-router-dom'; // ✅ useLoca
 
 function VideoList({ sidebarOpen }) {
   const categories = [
-    "All", "Programming", "Tech", "Design", "AI",
+    "All", "Programming", "Tech", "Design", "AI","Movie",
     "Gaming", "Vlogs", "Music", "Education"
   ];
 
