@@ -1,38 +1,49 @@
 import mongoose from "mongoose";
 
-// define schema
+// Define schema
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: true,
+        trim: true,
     },
     email: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        trim: true,
+        match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
     },
     password: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     avatar: {
-        type: String 
+        type: String,
+        trim: true,
+        default: 'https://placehold.co/80x80.png?text=Profile', // Default avatar URL
     },
     likedVideos: [{
-        type: mongoose.Schema.Types.ObjectId, // array of video _IDs
-        ref: 'Video'
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Video',
     }],
     subscribedChannels: [{ 
-        type: mongoose.Schema.Types.ObjectId, // array of channel _IDs
-        ref: 'Channel' 
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Channel',
     }],
     channel: { 
-        type: mongoose.Schema.Types.ObjectId, // channel _id
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Channel',
-        default: null
-    }
-}, { timestamps: true }); // save timestamp
+        default: null,
+    },
+}, { timestamps: true });
 
-const UserModel = mongoose.models.User || mongoose.model('User', userSchema); // create model based on the schema
+// Ensure unique index on email for better performance
+userSchema.index({ email: 1 }, { unique: true });
 
-export default UserModel; // export model
+// Create model
+const UserModel = mongoose.models.User || mongoose.model('User', userSchema);
+
+// Export model
+export default UserModel;

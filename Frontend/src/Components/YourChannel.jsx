@@ -23,17 +23,48 @@ function YourChannel() {
   const [form, setForm] = useState(initialForm);
   const [formLoading, setFormLoading] = useState(false);
   const [showEditChannel, setShowEditChannel] = useState(false);
-  const [channelEditForm, setChannelEditForm] = useState({ channelName: "", channelBanner: "", channelPic: "", description: "" });
+  const [channelEditForm, setChannelEditForm] = useState({ 
+    channelName: "", 
+    channelBannerUrl: "", 
+    channelPicUrl: "", 
+    description: "" 
+  });
   const [channelEditLoading, setChannelEditLoading] = useState(false);
   const [showManageVideos, setShowManageVideos] = useState(false);
+  const [bannerError, setBannerError] = useState(null);
+  const [picError, setPicError] = useState(null);
 
   // Function to parse YouTube video ID from various input formats
   const parseYouTubeId = (input) => {
     if (!input) return '';
-    // Match video ID from full URLs, short URLs, or ID with query params
     const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})|([^"&?/\s]{11})/i;
     const match = input.match(regex);
     return match ? match[1] || match[2] : '';
+  };
+
+  // Function to validate image URL by checking content-type
+  const isValidImageUrl = async (url) => {
+    if (!url) return true; // Allow empty URLs since fields are optional
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      const contentType = response.headers.get('content-type');
+      return contentType?.startsWith('image/');
+    } catch (e) {
+      console.warn(`Image validation failed for ${url}:`, e.message);
+      return false; // Likely CORS or network error; let backend handle final validation
+    }
+  };
+
+  // Function to get effective image URL for preview (handles nested URLs)
+  const getEffectiveImageUrl = (url) => {
+    if (!url) return url;
+    try {
+      const urlObj = new URL(url);
+      const nestedUrl = urlObj.searchParams.get('url');
+      return nestedUrl ? decodeURIComponent(nestedUrl) : url;
+    } catch (e) {
+      return url;
+    }
   };
 
   useEffect(() => {
@@ -61,7 +92,7 @@ function YourChannel() {
       await axios.delete(`http://localhost:8000/api/video/${id}`, { headers: { Authorization: `Bearer ${user.token}` } });
       setVideos(videos => videos.filter(v => v._id !== id));
       setMenuOpen(null);
-      setSelectedVideos(selectedVideos.filter(v => v._id !== id));
+      setSelectedVideos(selectedVideos.filter(v => v !== id));
     } catch (err) {
       alert("Failed to delete video");
     }
@@ -95,11 +126,11 @@ function YourChannel() {
     const trimmed = {
       title: form.title.trim(),
       videoLink: videoId,
-      thumbnail: form.thumbnail.trim(),
+      thumbnail: form.thumbnail.trim() || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
       description: form.description.trim(),
       category: form.category.trim()
     };
-    if (!trimmed.title || !trimmed.videoLink || !trimmed.thumbnail) {
+    if (!trimmed.title || !trimmed.videoLink) {
       alert("Please fill in all required fields.");
       setFormLoading(false);
       return;
@@ -131,11 +162,11 @@ function YourChannel() {
     const trimmed = {
       title: form.title.trim(),
       videoLink: videoId,
-      thumbnail: form.thumbnail.trim(),
+      thumbnail: form.thumbnail.trim() || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
       description: form.description.trim(),
       category: form.category.trim()
     };
-    if (!trimmed.title || !trimmed.videoLink || !trimmed.thumbnail) {
+    if (!trimmed.title || !trimmed.videoLink) {
       alert("Please fill in all required fields.");
       setFormLoading(false);
       return;
@@ -158,33 +189,21 @@ function YourChannel() {
   const openEditChannelModal = () => {
     setChannelEditForm({
       channelName: channel.channelName || "",
-      channelBanner: channel.channelBanner || "",
-      channelPic: channel.channelPic || "",
+      channelBannerUrl: channel.channelBanner || "",
+      channelPicUrl: channel.channelPic || "",
       description: channel.description || ""
     });
+    setBannerError(null);
+    setPicError(null);
     setShowEditChannel(true);
   };
 
   const handleChannelEditChange = (e) => {
-    const { name, value, files } = e.target;
-    if (files && files[0]) {
-      const file = files[0];
-      if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-        alert("Please upload a valid image file (JPEG, PNG, or GIF).");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Image file size must be less than 5MB.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setChannelEditForm(prev => ({ ...prev, [name]: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setChannelEditForm(prev => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setChannelEditForm(prev => ({ ...prev, [name]: value }));
+    // Reset error states when changing URLs
+    if (name === 'channelBannerUrl') setBannerError(null);
+    if (name === 'channelPicUrl') setPicError(null);
   };
 
   const handleChannelEditSave = async (e) => {
@@ -192,12 +211,22 @@ function YourChannel() {
     setChannelEditLoading(true);
     const trimmed = {
       channelName: channelEditForm.channelName.trim(),
-      channelBanner: channelEditForm.channelBanner.trim(),
-      channelPic: channelEditForm.channelPic.trim(),
+      channelBanner: channelEditForm.channelBannerUrl.trim(),
+      channelPic: channelEditForm.channelPicUrl.trim(),
       description: channelEditForm.description.trim()
     };
     if (!trimmed.channelName) {
       alert("Channel name is required.");
+      setChannelEditLoading(false);
+      return;
+    }
+    if (trimmed.channelBanner && !(await isValidImageUrl(trimmed.channelBanner))) {
+      alert("The channel banner URL does not point to a valid image. Please enter a URL that serves an image.");
+      setChannelEditLoading(false);
+      return;
+    }
+    if (trimmed.channelPic && !(await isValidImageUrl(trimmed.channelPic))) {
+      alert("The channel profile image URL does not point to a valid image. Please enter a URL that serves an image.");
       setChannelEditLoading(false);
       return;
     }
@@ -206,7 +235,9 @@ function YourChannel() {
       const res = await axios.get(`http://localhost:8000/api/channel/${user.channelId}`);
       setChannel(res.data);
       setShowEditChannel(false);
-      setChannelEditForm({ channelName: "", channelBanner: "", channelPic: "", description: "" });
+      setChannelEditForm({ channelName: "", channelBannerUrl: "", channelPicUrl: "", description: "" });
+      setBannerError(null);
+      setPicError(null);
     } catch (err) {
       alert("Failed to update channel: " + (err.response?.data?.message || err.message));
     } finally {
@@ -331,7 +362,7 @@ function YourChannel() {
       {/* Edit Channel Modal */}
       {showEditChannel && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md text-gray-900">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md text-gray-900 overflow-y-auto max-h-[80vh]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Edit Channel Details</h2>
               <button onClick={() => setShowEditChannel(false)} className="text-gray-600 hover:text-gray-800">
@@ -362,38 +393,42 @@ function YourChannel() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Channel Banner</label>
+                <label className="block text-sm font-medium mb-1">Channel Banner URL</label>
                 <input
-                  name="channelBanner"
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif"
+                  name="channelBannerUrl"
+                  value={channelEditForm.channelBannerUrl}
                   onChange={handleChannelEditChange}
-                  className="w-full p-2 bg-gray-100 rounded border"
+                  placeholder="e.g., https://example.com/image.jpg or any URL serving an image"
+                  className="w-full p-2 bg-gray-100 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {channelEditForm.channelBanner && (
+                {channelEditForm.channelBannerUrl && (
                   <img
-                    src={channelEditForm.channelBanner}
+                    src={getEffectiveImageUrl(channelEditForm.channelBannerUrl)}
                     alt="Banner preview"
                     className="mt-2 w-full h-24 object-cover rounded"
+                    onError={() => setBannerError("Failed to load banner image. The URL may be invalid or blocked by CORS.")}
                   />
                 )}
+                {bannerError && <p className="text-red-600 text-sm mt-1">{bannerError}</p>}
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Channel Profile Image</label>
+                <label className="block text-sm font-medium mb-1">Channel Profile Image URL</label>
                 <input
-                  name="channelPic"
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif"
+                  name="channelPicUrl"
+                  value={channelEditForm.channelPicUrl}
                   onChange={handleChannelEditChange}
-                  className="w-full p-2 bg-gray-100 rounded border"
+                  placeholder="e.g., https://example.com/image.jpg or any URL serving an image"
+                  className="w-full p-2 bg-gray-100 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {channelEditForm.channelPic && (
+                {channelEditForm.channelPicUrl && (
                   <img
-                    src={channelEditForm.channelPic}
+                    src={getEffectiveImageUrl(channelEditForm.channelPicUrl)}
                     alt="Profile preview"
                     className="mt-2 w-20 h-20 rounded-full object-cover"
+                    onError={() => setPicError("Failed to load profile image. The URL may be invalid or blocked by CORS.")}
                   />
                 )}
+                {picError && <p className="text-red-600 text-sm mt-1">{picError}</p>}
               </div>
               <div className="flex justify-end space-x-2">
                 <button
@@ -456,9 +491,8 @@ function YourChannel() {
                   name="thumbnail"
                   value={form.thumbnail}
                   onChange={handleFormChange}
-                  placeholder="Thumbnail image URL"
+                  placeholder="Thumbnail image URL (leave blank for default YouTube thumbnail)"
                   className="w-full p-2 bg-gray-100 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div className="mb-4">
@@ -543,9 +577,8 @@ function YourChannel() {
                   name="thumbnail"
                   value={form.thumbnail}
                   onChange={handleFormChange}
-                  placeholder="Thumbnail image URL"
+                  placeholder="Thumbnail image URL (leave blank for default YouTube thumbnail)"
                   className="w-full p-2 bg-gray-100 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div className="mb-4">

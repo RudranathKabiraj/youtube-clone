@@ -2,7 +2,7 @@
 
 import VideoModel from '../models/videoModel.js';
 import ChannelModel from '../models/channelModel.js';
-import UserModel from '../models/userModel.js';
+import UserModel from '../models/usermodel.js';
 
 // Upload a new video (protected route)
 export const uploadVideo = async (req, res) => {
