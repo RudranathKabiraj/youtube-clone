@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { STATIC_RECOMMENDED } from "../assets/recommendedVideos.js"; // import recommended videos from Assets
@@ -36,7 +35,6 @@ function VideoPlayer() {
   const [editText, setEditText] = useState("");
   const [allVideos, setAllVideos] = useState([]);
   const [subscribed, setSubscribed] = useState(false);
-
 
   // Fetch video and comments
   useEffect(() => {
@@ -272,6 +270,9 @@ function VideoPlayer() {
   if (error) return <div style={{ padding: 32, color: "red" }}>{error}</div>;
   if (!video) return null;
 
+  // Check if the current user is the owner of the video's channel
+  const isOwnVideo = user && video.channel?.owner === user._id;
+
   // return JSX
   return (
     <div className="w-full px-4 py-5 pb-20 flex flex-col lg:flex-row lg:items-start gap-6 max-w-screen-xl mx-auto">
@@ -318,17 +319,18 @@ function VideoPlayer() {
               </Link>
             </div>
 
-            {/* Subscribe button */}
-            <button
-  onClick={() => setSubscribed(!subscribed)}
-  className={`text-sm font-medium px-4 py-2 rounded-full transition 
-    ${subscribed 
-      ? 'bg-gray-300 text-black hover:bg-gray-400' 
-      : 'bg-red-600 text-white hover:bg-red-700'}`}
->
-  {subscribed ? 'Subscribed' : 'Subscribe'}
-</button>
-
+            {/* Subscribe button, hidden if user is the channel owner */}
+            {!isOwnVideo && (
+              <button
+                onClick={() => setSubscribed(!subscribed)}
+                className={`text-sm font-medium px-4 py-2 rounded-full transition 
+                  ${subscribed 
+                    ? 'bg-gray-300 text-black hover:bg-gray-400' 
+                    : 'bg-red-600 text-white hover:bg-red-700'}`}
+              >
+                {subscribed ? 'Subscribed' : 'Subscribe'}
+              </button>
+            )}
           </div>
 
           {user && (
@@ -556,33 +558,32 @@ function VideoPlayer() {
       </div>
 
       {/* Recommended Video Section */}
-<div className="w-full lg:w-[30%] px-4 lg:px-0 mt-6 lg:mt-0">
-  <h3 className="text-base font-medium text-gray-900 mb-4">Up next</h3>
+      <div className="w-full lg:w-[30%] px-4 lg:px-0 mt-6 lg:mt-0">
+        <h3 className="text-base font-medium text-gray-900 mb-4">Up next</h3>
 
-  <div className="space-y-3">
-    {allVideos.map((v) => (
-      <Link
-        to={`/video/${v._id}`}
-        key={v._id}
-        className="flex items-start gap-3 hover:bg-gray-100 p-2 rounded-lg transition"
-      >
-        <img
-          src={v.thumbnail}
-          alt={v.title}
-          className="w-40 h-24 object-cover rounded-md bg-gray-200 flex-shrink-0"
-        />
-        <div className="flex flex-col flex-1">
-          <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
-            {v.title}
-          </h4>
-          <p className="text-xs text-gray-600 mt-1">Channel Name</p>
-          <p className="text-xs text-gray-600">10K views • 2 days ago</p>
+        <div className="space-y-3">
+          {allVideos.map((v) => (
+            <Link
+              to={`/video/${v._id}`}
+              key={v._id}
+              className="flex items-start gap-3 hover:bg-gray-100 p-2 rounded-lg transition"
+            >
+              <img
+                src={v.thumbnail}
+                alt={v.title}
+                className="w-40 h-24 object-cover rounded-md bg-gray-200 flex-shrink-0"
+              />
+              <div className="flex flex-col flex-1">
+                <h4 className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
+                  {v.title}
+                </h4>
+                <p className="text-xs text-gray-600 mt-1">Channel Name</p>
+                <p className="text-xs text-gray-600">10K views • 2 days ago</p>
+              </div>
+            </Link>
+          ))}
         </div>
-      </Link>
-    ))}
-  </div>
-</div>
-
+      </div>
     </div>
   );
 }
